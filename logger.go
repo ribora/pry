@@ -30,7 +30,6 @@ func New(level string, options ...LoggerOption) (*logger, error) {
 	for _, option := range options {
 		option(l)
 	}
-	zerolog.TimestampFieldName = "@timestamp"
 	l.l = l.l.Output(zerolog.MultiLevelWriter(append([]io.Writer{l.format}, l.channels...)...))
 
 	return l, nil

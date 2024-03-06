@@ -7,10 +7,13 @@ import (
 	"io"
 	"os"
 
+	"github.com/rs/zerolog"
+
 	"gitlab.com/gorib/pry/option"
 )
 
 func Json() io.Writer {
+	zerolog.TimestampFieldName = "@timestamp"
 	return jsonFormatter{FieldsExclude: option.DefaultExcludedFields, Out: os.Stdout}
 }
 
