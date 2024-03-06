@@ -14,7 +14,7 @@ import (
 	"gitlab.com/gorib/pry/option"
 )
 
-func Sentry(dsn, env string, levels ...string) (zerolog.LevelWriter, error) {
+func Sentry(dsn, env string, levels ...string) (io.Writer, error) {
 	var logLevels []zerolog.Level
 	if len(levels) == 0 {
 		logLevels = []zerolog.Level{zerolog.PanicLevel, zerolog.FatalLevel, zerolog.ErrorLevel}
@@ -30,7 +30,7 @@ func Sentry(dsn, env string, levels ...string) (zerolog.LevelWriter, error) {
 
 	var hub *sentry.Hub
 	if dsn != "" {
-		client, err := sentry.NewClient(sentry.ClientOptions{Dsn: dsn, Environment: env, Debug: true})
+		client, err := sentry.NewClient(sentry.ClientOptions{Dsn: dsn, Environment: env})
 		if err != nil {
 			return nil, err
 		}
