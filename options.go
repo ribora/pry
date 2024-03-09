@@ -6,7 +6,7 @@ import (
 
 func WithCaller() LoggerOption {
 	return func(l Logger) {
-		l.(*logger).l = l.(*logger).l.With().Caller().Logger()
+		l.(*logger).l = l.(*logger).l.With().CallerWithSkipFrameCount(4).Logger()
 	}
 }
 
