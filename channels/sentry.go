@@ -14,6 +14,16 @@ import (
 	"gitlab.com/gorib/pry/option"
 )
 
+var sentryLevels = map[zerolog.Level]sentry.Level{
+	zerolog.TraceLevel: sentry.LevelDebug,
+	zerolog.DebugLevel: sentry.LevelDebug,
+	zerolog.InfoLevel:  sentry.LevelInfo,
+	zerolog.WarnLevel:  sentry.LevelWarning,
+	zerolog.ErrorLevel: sentry.LevelError,
+	zerolog.FatalLevel: sentry.LevelFatal,
+	zerolog.PanicLevel: sentry.LevelFatal,
+}
+
 func Sentry(dsn, env string, levels ...string) (io.Writer, error) {
 	var logLevels []zerolog.Level
 	if len(levels) == 0 {
@@ -70,14 +80,21 @@ func (s sentryChannel) WriteLevel(level zerolog.Level, p []byte) (n int, err err
 		Tags:      make(map[string]string),
 		Extra:     make(map[string]any),
 		Request:   &sentry.Request{},
+		Level:     sentryLevels[level],
 	}
 	for key, value := range payload {
 		switch key {
 		case zerolog.MessageFieldName:
 			event.Message = fmt.Sprintf("%v", value)
 		case zerolog.ErrorFieldName:
+			var msg string
+			if payload[zerolog.MessageFieldName] != "" {
+				msg = fmt.Sprintf("%v: %s", payload[zerolog.MessageFieldName], value)
+			} else {
+				msg = fmt.Sprintf("%v", value)
+			}
 			event.Exception = append(event.Exception, sentry.Exception{
-				Type:  fmt.Sprintf("%v: %v", payload[zerolog.MessageFieldName], value),
+				Type:  msg,
 				Value: fmt.Sprintf("%v", payload[option.Url]),
 				Stacktrace: func() *sentry.Stacktrace {
 					stack := sentry.NewStacktrace()
