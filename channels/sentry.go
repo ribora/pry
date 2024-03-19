@@ -88,7 +88,7 @@ func (s sentryChannel) WriteLevel(level zerolog.Level, p []byte) (n int, err err
 			event.Message = fmt.Sprintf("%v", value)
 		case zerolog.ErrorFieldName:
 			var msg string
-			if payload[zerolog.MessageFieldName] != "" {
+			if payload[zerolog.MessageFieldName] != nil && payload[zerolog.MessageFieldName] != "" {
 				msg = fmt.Sprintf("%v: %s", payload[zerolog.MessageFieldName], value)
 			} else {
 				msg = fmt.Sprintf("%v", value)
