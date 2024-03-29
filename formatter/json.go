@@ -35,18 +35,12 @@ func (j jsonFormatter) Write(p []byte) (n int, err error) {
 		delete(evt, exclude)
 	}
 
-	b, err := json.Marshal(evt)
+	e := json.NewEncoder(j.Out)
+	e.SetEscapeHTML(false)
+	err = e.Encode(evt)
 	if err != nil {
 		return n, fmt.Errorf("cannot encode event: %s", err)
 	}
-	b = append(b, '\n')
 
-	n, err = j.Out.Write(b)
-	if err != nil {
-		return n, err
-	}
-	if n != len(b) {
-		return n, io.ErrShortWrite
-	}
 	return len(p), nil
 }
