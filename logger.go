@@ -69,6 +69,6 @@ func (l *logger) log(level zerolog.Level, message any, opts ...Option) {
 	if err, ok := message.(error); ok {
 		e.e.Err(err).Send()
 	} else {
-		e.e.Msg(fmt.Sprintf("%s", message))
+		e.e.Msg(fmt.Sprintf("%v", message))
 	}
 }
