@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"slices"
 	"strings"
 	"time"
 
@@ -24,45 +23,49 @@ var sentryLevels = map[zerolog.Level]sentry.Level{
 	zerolog.PanicLevel: sentry.LevelFatal,
 }
 
-func Sentry(dsn, env string, levels ...string) (io.Writer, error) {
-	var logLevels []zerolog.Level
-	if len(levels) == 0 {
-		logLevels = []zerolog.Level{zerolog.PanicLevel, zerolog.FatalLevel, zerolog.ErrorLevel}
-	} else {
-		for _, level := range levels {
-			if lvl, err := zerolog.ParseLevel(level); err != nil {
-				return nil, err
-			} else {
-				logLevels = append(logLevels, lvl)
-			}
-		}
-	}
+type SentryOption func(l *sentryChannel) error
 
-	var hub *sentry.Hub
-	if dsn != "" {
+func WithSentryConnection(dsn, env string) SentryOption {
+	return func(l *sentryChannel) error {
+		if dsn == "" {
+			return nil
+		}
 		client, err := sentry.NewClient(sentry.ClientOptions{Dsn: dsn, Environment: env})
 		if err != nil {
+			return err
+		}
+		l.hub = sentry.NewHub(nil, sentry.NewScope())
+		l.hub.BindClient(client)
+		return nil
+	}
+}
+
+func Sentry(level string, options ...SentryOption) (io.Writer, error) {
+	lvl, err := zerolog.ParseLevel(level)
+	if err != nil {
+		return nil, err
+	}
+	l := &sentryChannel{
+		level: lvl,
+	}
+	for _, opt := range options {
+		if err = opt(l); err != nil {
 			return nil, err
 		}
-		hub = sentry.NewHub(nil, sentry.NewScope())
-		hub.BindClient(client)
 	}
 
-	return &sentryChannel{
-		hub:    hub,
-		levels: logLevels,
-	}, nil
+	return l, nil
 }
 
 type sentryChannel struct {
 	io.Writer
-	hub    *sentry.Hub
-	levels []zerolog.Level
+	hub   *sentry.Hub
+	level zerolog.Level
 }
 
 func (s sentryChannel) WriteLevel(level zerolog.Level, p []byte) (n int, err error) {
 	n = len(p)
-	if !slices.Contains(s.levels, level) {
+	if s.level > level {
 		return
 	}
 	if s.hub == nil {
