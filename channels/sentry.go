@@ -25,12 +25,27 @@ var sentryLevels = map[zerolog.Level]sentry.Level{
 
 type SentryOption func(l *sentryChannel) error
 
-func WithSentryConnection(dsn, env string) SentryOption {
+type sentryConnectOption func(o *sentry.ClientOptions) error
+
+func WithSentryService(name string) sentryConnectOption {
+	return func(o *sentry.ClientOptions) error {
+		o.ServerName = name
+		return nil
+	}
+}
+
+func WithSentryConnection(dsn, env string, opts ...sentryConnectOption) SentryOption {
 	return func(l *sentryChannel) error {
 		if dsn == "" {
 			return nil
 		}
-		client, err := sentry.NewClient(sentry.ClientOptions{Dsn: dsn, Environment: env})
+		o := &sentry.ClientOptions{Dsn: dsn, Environment: env}
+		for _, opt := range opts {
+			if err := opt(o); err != nil {
+				return err
+			}
+		}
+		client, err := sentry.NewClient(*o)
 		if err != nil {
 			return err
 		}
