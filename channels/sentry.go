@@ -97,8 +97,10 @@ func (s sentryChannel) WriteLevel(level zerolog.Level, p []byte) (n int, err err
 		Timestamp: time.Now(),
 		Tags:      make(map[string]string),
 		Extra:     make(map[string]any),
-		Request:   &sentry.Request{},
-		Level:     sentryLevels[level],
+		Request: &sentry.Request{
+			Headers: make(map[string]string),
+		},
+		Level: sentryLevels[level],
 	}
 	for key, value := range payload {
 		switch key {
@@ -135,6 +137,12 @@ func (s sentryChannel) WriteLevel(level zerolog.Level, p []byte) (n int, err err
 			event.Request.Method = fmt.Sprintf("%v", value)
 		case option.Body:
 			event.Request.Data = fmt.Sprintf("%v", value)
+		case option.UserAgent:
+			event.Request.Headers["User-Agent"] = fmt.Sprintf("%v", value)
+		case option.UserLanguage:
+			event.Request.Headers["Accept-Language"] = fmt.Sprintf("%v", value)
+		case option.SourceIp:
+			event.Request.Env = map[string]string{"REMOTE_ADDR": fmt.Sprintf("%v", value)}
 		default:
 			event.Extra[key] = fmt.Sprintf("%v", value)
 		}
