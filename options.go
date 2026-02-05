@@ -16,7 +16,7 @@ func WithFormat(w io.Writer) LoggerOption {
 	}
 }
 
-func ToChannels(w ...io.Writer) LoggerOption {
+func ToChannels(w ...Channel) LoggerOption {
 	return func(l Logger) {
 		l.(*logger).channels = w
 	}

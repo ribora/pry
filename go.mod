@@ -14,6 +14,7 @@ require (
 	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/stretchr/testify v1.10.0 // indirect
+	gitlab.com/gorib/failure v0.0.0-20260205065720-0f111943a8ea // indirect
 	golang.org/x/sys v0.30.0 // indirect
 	golang.org/x/text v0.22.0 // indirect
 )

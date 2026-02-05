@@ -5,7 +5,6 @@ import (
 
 	"github.com/rs/zerolog"
 
-	"gitlab.com/gorib/pry/option"
 	"gitlab.com/gorib/session"
 )
 
@@ -13,12 +12,15 @@ type Event interface{}
 
 type event struct {
 	Event
-	e *zerolog.Event
+	ctx    context.Context
+	err    error
+	fields []map[string]any
+	e      *zerolog.Event
 }
 
 func Err(err error) Option {
 	return func(e Event) {
-		e.(*event).e.Err(err)
+		e.(*event).err = err
 	}
 }
 
@@ -28,18 +30,12 @@ func Ctx(ctx context.Context) Option {
 		if s == nil {
 			return
 		}
-		e.(*event).e.Str(option.Url, s.Uri)
-		e.(*event).e.Str(option.Method, s.Method)
-		e.(*event).e.Str(option.Body, s.Body)
-		e.(*event).e.Str(option.CorrelationId, s.CorrelationId)
-		e.(*event).e.Str(option.UserAgent, s.UserAgent)
-		e.(*event).e.Str(option.UserLanguage, s.UserLanguage)
-		e.(*event).e.Str(option.SourceIp, s.SourceIp)
+		e.(*event).ctx = ctx
 	}
 }
 
 func Field(key string, value any) Option {
 	return func(e Event) {
-		e.(*event).e.Fields([]any{key, value})
+		e.(*event).fields = append(e.(*event).fields, map[string]any{key: value})
 	}
 }

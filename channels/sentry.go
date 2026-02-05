@@ -1,16 +1,15 @@
 package channels
 
 import (
-	"encoding/json"
-	"fmt"
-	"io"
+	"context"
 	"strings"
 	"time"
 
 	"github.com/getsentry/sentry-go"
 	"github.com/rs/zerolog"
 
-	"gitlab.com/gorib/pry/option"
+	"gitlab.com/gorib/failure"
+	"gitlab.com/gorib/session"
 )
 
 var sentryLevels = map[zerolog.Level]sentry.Level{
@@ -55,7 +54,7 @@ func WithSentryConnection(dsn, env string, opts ...sentryConnectOption) SentryOp
 	}
 }
 
-func Sentry(level string, options ...SentryOption) (io.Writer, error) {
+func Sentry(level string, options ...SentryOption) (*sentryChannel, error) {
 	lvl, err := zerolog.ParseLevel(level)
 	if err != nil {
 		return nil, err
@@ -73,23 +72,15 @@ func Sentry(level string, options ...SentryOption) (io.Writer, error) {
 }
 
 type sentryChannel struct {
-	io.Writer
 	hub   *sentry.Hub
 	level zerolog.Level
 }
 
-func (s sentryChannel) WriteLevel(level zerolog.Level, p []byte) (n int, err error) {
-	n = len(p)
+func (s sentryChannel) Send(level zerolog.Level, ctx context.Context, message string, err error, fields ...map[string]any) {
 	if s.level > level {
 		return
 	}
 	if s.hub == nil {
-		return
-	}
-
-	var payload map[string]any
-	err = json.Unmarshal(p, &payload)
-	if err != nil {
 		return
 	}
 
@@ -102,53 +93,71 @@ func (s sentryChannel) WriteLevel(level zerolog.Level, p []byte) (n int, err err
 		},
 		Level: sentryLevels[level],
 	}
-	for key, value := range payload {
-		switch key {
-		case zerolog.MessageFieldName:
-			event.Message = fmt.Sprintf("%v", value)
-		case zerolog.ErrorFieldName:
-			var msg string
-			if payload[zerolog.MessageFieldName] != nil && payload[zerolog.MessageFieldName] != "" {
-				msg = fmt.Sprintf("%v: %s", payload[zerolog.MessageFieldName], value)
-			} else {
-				msg = fmt.Sprintf("%v", value)
-			}
-			event.Exception = append(event.Exception, sentry.Exception{
-				Type:  msg,
-				Value: fmt.Sprintf("%v", payload[option.Url]),
-				Stacktrace: func() *sentry.Stacktrace {
-					stack := sentry.NewStacktrace()
-					var frames []sentry.Frame
-					for _, frame := range stack.Frames {
-						if frame.Module != "github.com/rs/zerolog" && strings.Index(frame.Module, "gitlab.com/gorib/pry") != 0 {
-							frames = append(frames, frame)
-						}
-					}
-					stack.Frames = frames
-					return stack
-				}(),
-			})
-		case zerolog.LevelFieldName, zerolog.TimestampFieldName:
-		case option.CorrelationId:
-			event.Tags[key] = fmt.Sprintf("%v", value)
-		case option.Url:
-			event.Request.URL = fmt.Sprintf("%v", value)
-		case option.Method:
-			event.Request.Method = fmt.Sprintf("%v", value)
-		case option.Body:
-			event.Request.Data = fmt.Sprintf("%v", value)
-		case option.UserAgent:
-			event.Request.Headers["User-Agent"] = fmt.Sprintf("%v", value)
-		case option.UserLanguage:
-			event.Request.Headers["Accept-Language"] = fmt.Sprintf("%v", value)
-		case option.SourceIp:
-			event.Request.Env = map[string]string{"REMOTE_ADDR": fmt.Sprintf("%v", value)}
-		default:
-			event.Extra[key] = fmt.Sprintf("%v", value)
+	if ss := session.FromContext(ctx); ss != nil {
+		event.Tags["correlation_id"] = ss.CorrelationId
+		event.Request.URL = ss.Uri
+		event.Request.Method = ss.Method
+		event.Request.Data = ss.Body
+		event.Request.Headers["User-Agent"] = ss.UserAgent
+		event.Request.Headers["Accept-Language"] = ss.UserLanguage
+		event.Request.Env = map[string]string{"REMOTE_ADDR": ss.SourceIp}
+	}
+	for _, field := range fields {
+		for key, value := range field {
+			event.Extra[key] = value
 		}
 	}
 
+	var msg []string
+	if message != "" {
+		msg = append(msg, message)
+	}
+	if err != nil {
+		var errorType string
+		var errorValue string
+		msg = append(msg, err.Error())
+		stack := &sentry.Stacktrace{}
+		if fe, ok := failure.FromError(err); ok {
+			errorType = fe.Type()
+			errorValue = fe.Error()
+			st := fe.Stack()
+			frames := make([]sentry.Frame, len(st))
+			for i, f := range st {
+				frames[len(st)-1-i] = sentry.Frame{
+					Function: f.Function,
+					Filename: f.File,
+					Lineno:   f.Line,
+				}
+			}
+			stack.Frames = frames
+		} else {
+			errorType = "error"
+			errorValue = err.Error()
+			st := sentry.NewStacktrace()
+			if st != nil {
+				var frames []sentry.Frame
+				for _, frame := range st.Frames {
+					if frame.Module != "github.com/rs/zerolog" && strings.Index(frame.Module, "gitlab.com/gorib/pry") != 0 {
+						frames = append(frames, frame)
+					}
+				}
+				stack.Frames = frames
+			}
+		}
+		event.Exception = append(event.Exception, sentry.Exception{
+			Type:       errorType,
+			Value:      errorValue,
+			Stacktrace: stack,
+		})
+	}
+	event.Message = strings.Join(msg, ": ")
+
 	s.hub.CaptureEvent(event)
-	s.hub.Flush(3 * time.Second)
-	return
+}
+
+func (s sentryChannel) Close() error {
+	if s.hub != nil {
+		s.hub.Flush(3 * time.Second)
+	}
+	return nil
 }

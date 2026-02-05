@@ -1,8 +1,11 @@
 package pry
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"io"
+	"sync"
 
 	"github.com/rs/zerolog"
 
@@ -21,6 +24,11 @@ type Logger interface {
 	Error(message any, opts ...Option)
 }
 
+type Channel interface {
+	Send(level zerolog.Level, ctx context.Context, message string, err error, fields ...map[string]any)
+	Close() error
+}
+
 func New(level string, options ...LoggerOption) (*logger, error) {
 	lvl, err := zerolog.ParseLevel(level)
 	if err != nil {
@@ -30,7 +38,7 @@ func New(level string, options ...LoggerOption) (*logger, error) {
 	for _, option := range options {
 		option(l)
 	}
-	l.l = l.l.Output(zerolog.MultiLevelWriter(append([]io.Writer{l.format}, l.channels...)...))
+	l.l = l.l.Output(l.format)
 
 	return l, nil
 }
@@ -38,7 +46,8 @@ func New(level string, options ...LoggerOption) (*logger, error) {
 type logger struct {
 	l        zerolog.Logger
 	format   io.Writer
-	channels []io.Writer
+	channels []Channel
+	wg       sync.WaitGroup
 }
 
 func (l *logger) Trace(message any, opts ...Option) {
@@ -66,9 +75,42 @@ func (l *logger) log(level zerolog.Level, message any, opts ...Option) {
 	for _, opt := range opts {
 		opt(e)
 	}
+	for _, f := range e.fields {
+		e.e.Fields(f)
+	}
+	var msg string
 	if err, ok := message.(error); ok {
+		e.err = err
 		e.e.Err(err).Send()
 	} else {
-		e.e.Msg(fmt.Sprintf("%v", message))
+		msg = fmt.Sprintf("%v", message)
+		e.e.Msg(msg)
 	}
+
+	ctx := context.Background()
+	if e.ctx != nil {
+		ctx = e.ctx
+	}
+	for _, channel := range l.channels {
+		l.wg.Add(1)
+		c := channel
+		go func() {
+			defer l.wg.Done()
+			c.Send(level, ctx, msg, e.err, e.fields...)
+		}()
+	}
+}
+
+func (l *logger) Close() error {
+	l.wg.Wait()
+	var errs []error
+	for _, channel := range l.channels {
+		if err := channel.Close(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	if len(errs) > 0 {
+		return errors.Join(errs...)
+	}
+	return nil
 }
