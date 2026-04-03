@@ -131,7 +131,10 @@ func (s sentryChannel) Send(level zerolog.Level, ctx context.Context, message st
 			}
 			stack.Frames = frames
 		} else {
-			errorType = "error"
+			errorType = err.Error()
+			if message != "" {
+				errorType = message
+			}
 			errorValue = err.Error()
 			st := sentry.NewStacktrace()
 			if st != nil {
