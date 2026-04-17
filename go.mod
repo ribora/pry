@@ -6,7 +6,7 @@ require (
 	github.com/getsentry/sentry-go v0.31.1
 	github.com/rs/zerolog v1.33.0
 	gitlab.com/gorib/failure v1.0.0
-	gitlab.com/gorib/session v0.0.0-20250224141908-df66ea5a990f
+	gitlab.com/gorib/session v1.0.0
 )
 
 require (
