@@ -9,6 +9,7 @@ import (
 
 	"github.com/rs/zerolog"
 
+	"gitlab.com/gorib/failure"
 	"gitlab.com/gorib/pry/formatter"
 )
 
@@ -76,15 +77,16 @@ func (l *logger) log(level zerolog.Level, message any, opts ...Option) {
 		opt(e)
 	}
 	for _, f := range e.fields {
-		e.e.Fields(f)
+		e.e = e.e.Fields(f)
 	}
+
 	var msg string
 	if err, ok := message.(error); ok {
 		e.err = err
 		e.e.Err(err).Send()
 	} else {
 		if e.err != nil {
-			e.e.Err(e.err)
+			e.e = e.e.Err(e.err)
 		}
 		msg = fmt.Sprintf("%v", message)
 		e.e.Msg(msg)
@@ -94,12 +96,13 @@ func (l *logger) log(level zerolog.Level, message any, opts ...Option) {
 	if e.ctx != nil {
 		ctx = e.ctx
 	}
+	chanErr := failure.Parse(e.err)
 	for _, channel := range l.channels {
 		l.wg.Add(1)
 		c := channel
 		go func() {
 			defer l.wg.Done()
-			c.Send(level, ctx, msg, e.err, e.fields...)
+			c.Send(level, ctx, msg, chanErr, e.fields...)
 		}()
 	}
 }

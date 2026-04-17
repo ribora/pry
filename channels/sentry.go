@@ -117,36 +117,25 @@ func (s sentryChannel) Send(level zerolog.Level, ctx context.Context, message st
 		var errorValue string
 		msg = append(msg, err.Error())
 		stack := &sentry.Stacktrace{}
-		if fe, ok := failure.FromError(err); ok {
-			errorType = fe.Type()
-			errorValue = fe.Error()
-			st := fe.Stack()
-			frames := make([]sentry.Frame, len(st))
-			for i, f := range st {
-				frames[len(st)-1-i] = sentry.Frame{
+		fe, _ := failure.FromError(err)
+		errorType = fe.Type()
+		errorValue = fe.Error()
+		st := fe.Stack()
+		frames := make([]sentry.Frame, 0, len(st))
+		for _, f := range st {
+			if !strings.HasPrefix(f.Function, "gitlab.com/gorib/pry") {
+				frames = append(frames, sentry.Frame{
 					Function: f.Function,
 					Filename: f.File,
 					Lineno:   f.Line,
-				}
-			}
-			stack.Frames = frames
-		} else {
-			errorType = err.Error()
-			if message != "" {
-				errorType = message
-			}
-			errorValue = err.Error()
-			st := sentry.NewStacktrace()
-			if st != nil {
-				var frames []sentry.Frame
-				for _, frame := range st.Frames {
-					if frame.Module != "github.com/rs/zerolog" && strings.Index(frame.Module, "gitlab.com/gorib/pry") != 0 {
-						frames = append(frames, frame)
-					}
-				}
-				stack.Frames = frames
+				})
 			}
 		}
+		// Sentry expects frames oldest-first; failure.Stack returns newest-first.
+		for i, j := 0, len(frames)-1; i < j; i, j = i+1, j-1 {
+			frames[i], frames[j] = frames[j], frames[i]
+		}
+		stack.Frames = frames
 		event.Exception = append(event.Exception, sentry.Exception{
 			Type:       errorType,
 			Value:      errorValue,
