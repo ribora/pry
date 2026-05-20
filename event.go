@@ -30,8 +30,31 @@ func Ctx(ctx context.Context) Option {
 		if s == nil {
 			return
 		}
-		e.(*event).ctx = ctx
+		ev := e.(*event)
+		ev.ctx = ctx
+		fields := map[string]any{}
+		if s.CorrelationId != "" {
+			fields["correlation_id"] = s.CorrelationId
+		}
+		if traceID, spanID, ok := parseTraceparent(s.Traceparent); ok {
+			fields["trace_id"] = traceID
+			fields["span_id"] = spanID
+		}
+		if len(fields) > 0 {
+			ev.fields = append(ev.fields, fields)
+		}
 	}
+}
+
+// W3C traceparent: "00-{32 hex trace_id}-{16 hex span_id}-{2 hex flags}".
+func parseTraceparent(tp string) (traceID, spanID string, ok bool) {
+	if len(tp) < 55 {
+		return "", "", false
+	}
+	if tp[2] != '-' || tp[35] != '-' || tp[52] != '-' {
+		return "", "", false
+	}
+	return tp[3:35], tp[36:52], true
 }
 
 func Field(key string, value any) Option {
