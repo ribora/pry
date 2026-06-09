@@ -1,12 +1,12 @@
 module gitlab.com/gorib/pry
 
-go 1.21.0
+go 1.26.0
 
 require (
 	github.com/getsentry/sentry-go v0.31.1
 	github.com/rs/zerolog v1.33.0
-	gitlab.com/gorib/failure v1.0.0
-	gitlab.com/gorib/session v1.1.0
+	gitlab.com/gorib/failure v1.1.1
+	gitlab.com/gorib/session v1.1.1
 )
 
 require (
