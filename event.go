@@ -5,6 +5,7 @@ import (
 
 	"github.com/rs/zerolog"
 
+	"gitlab.com/gorib/failure"
 	"gitlab.com/gorib/session"
 )
 
@@ -16,6 +17,15 @@ type event struct {
 	err    error
 	fields []map[string]any
 	e      *zerolog.Event
+}
+
+func (e *event) fetchPayload(err error) *event {
+	if fe, ok := failure.FromError(err); ok {
+		if p := fe.Payload(); len(p) > 0 {
+			e.e = e.e.Fields(map[string]any{"payload": p})
+		}
+	}
+	return e
 }
 
 func Err(err error) Option {

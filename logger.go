@@ -83,12 +83,14 @@ func (l *logger) log(level zerolog.Level, message any, opts ...Option) {
 	var msg string
 	if err, ok := message.(error); ok {
 		e.err = err
+		e.fetchPayload(e.err)
 		e.e.Err(err).Send()
 	} else {
 		if e.err != nil {
 			e.e = e.e.Err(e.err)
 		}
 		msg = fmt.Sprintf("%v", message)
+		e.fetchPayload(e.err)
 		e.e.Msg(msg)
 	}
 
