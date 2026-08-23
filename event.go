@@ -6,10 +6,11 @@ import (
 	"github.com/rs/zerolog"
 
 	"gitlab.com/gorib/failure"
+	"gitlab.com/gorib/pry/internal/w3c"
 	"gitlab.com/gorib/session"
 )
 
-type Event interface{}
+type Event any
 
 type event struct {
 	Event
@@ -46,7 +47,7 @@ func Ctx(ctx context.Context) Option {
 		if s.CorrelationId != "" {
 			fields["correlation_id"] = s.CorrelationId
 		}
-		if traceID, spanID, ok := parseTraceparent(s.Traceparent); ok {
+		if traceID, spanID, ok := w3c.ParseTraceparent(s.Traceparent); ok {
 			fields["trace_id"] = traceID
 			fields["span_id"] = spanID
 		}
@@ -54,17 +55,6 @@ func Ctx(ctx context.Context) Option {
 			ev.fields = append(ev.fields, fields)
 		}
 	}
-}
-
-// W3C traceparent: "00-{32 hex trace_id}-{16 hex span_id}-{2 hex flags}".
-func parseTraceparent(tp string) (traceID, spanID string, ok bool) {
-	if len(tp) < 55 {
-		return "", "", false
-	}
-	if tp[2] != '-' || tp[35] != '-' || tp[52] != '-' {
-		return "", "", false
-	}
-	return tp[3:35], tp[36:52], true
 }
 
 func Field(key string, value any) Option {
