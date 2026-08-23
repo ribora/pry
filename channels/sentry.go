@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"maps"
 	"runtime"
+	"runtime/debug"
 	"slices"
 	"strings"
 	"time"
@@ -85,8 +86,12 @@ func Sentry(level string, options ...SentryOption) (*sentryChannel, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	l := &sentryChannel{
 		level: lvl,
+	}
+	if bi, ok := debug.ReadBuildInfo(); ok {
+		l.appPrefix = bi.Main.Path
 	}
 	for _, opt := range options {
 		if err = opt(l); err != nil {
@@ -98,8 +103,9 @@ func Sentry(level string, options ...SentryOption) (*sentryChannel, error) {
 }
 
 type sentryChannel struct {
-	hub   *sentry.Hub
-	level zerolog.Level
+	hub       *sentry.Hub
+	level     zerolog.Level
+	appPrefix string
 }
 
 func (s *sentryChannel) Send(level zerolog.Level, ctx context.Context, message string, err error, fields ...map[string]any) {
@@ -138,7 +144,7 @@ func (s *sentryChannel) Send(level zerolog.Level, ctx context.Context, message s
 		}
 	}
 	if err != nil {
-		applyError(event, err)
+		s.applyError(event, err)
 	}
 
 	hub.CaptureEvent(event)
@@ -184,16 +190,16 @@ func propagationContext(traceId, spanId string) (sentry.PropagationContext, bool
 	return pc, true
 }
 
-func applyError(event *sentry.Event, err error) {
+func (s *sentryChannel) applyError(event *sentry.Event, err error) {
 	errorType, errorValue := fmt.Sprintf("%T", err), err.Error()
-	mechanism := &sentry.Mechanism{Type: "generic", Handled: sentry.Pointer(true)}
+	mechanism := &sentry.Mechanism{Type: "generic", Handled: new(true)}
 	var frames []sentry.Frame
 
 	if fe, ok := failure.FromError(err); ok {
 		errorType, errorValue = fe.Type(), fe.Error()
-		frames = convertFrames(fe.Stack())
+		frames = s.convertFrames(fe.Stack())
 		if payload := fe.Payload(); len(payload) > 0 {
-			event.Contexts["payload"] = sentry.Context(payload)
+			event.Contexts["payload"] = payload
 		}
 	}
 	if errors.Is(err, failure.ErrPanic) {
@@ -213,7 +219,7 @@ func applyError(event *sentry.Event, err error) {
 	event.Exception = append(event.Exception, exception)
 }
 
-func convertFrames(stack []failure.Frame) []sentry.Frame {
+func (s *sentryChannel) convertFrames(stack []failure.Frame) []sentry.Frame {
 	frames := make([]sentry.Frame, 0, len(stack))
 	for _, f := range stack {
 		frame := sentry.NewFrame(runtime.Frame{
@@ -221,10 +227,8 @@ func convertFrames(stack []failure.Frame) []sentry.Frame {
 			File:     f.File,
 			Line:     f.Line,
 		})
-		// Library frames only describe how the error reached the channel: they stay visible,
-		// but as system frames they never become the culprit and stay out of grouping.
-		if strings.HasPrefix(f.Function, "gitlab.com/gorib") {
-			frame.InApp = false
+		if s.appPrefix != "" {
+			frame.InApp = frame.Module == "main" || strings.HasPrefix(frame.Module, s.appPrefix)
 		}
 		frames = append(frames, frame)
 	}
