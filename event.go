@@ -6,7 +6,6 @@ import (
 	"github.com/rs/zerolog"
 
 	"gitlab.com/gorib/failure"
-	"gitlab.com/gorib/pry/internal/w3c"
 	"gitlab.com/gorib/session"
 )
 
@@ -43,17 +42,6 @@ func Ctx(ctx context.Context) Option {
 		}
 		ev := e.(*event)
 		ev.ctx = ctx
-		fields := map[string]any{}
-		if s.CorrelationId != "" {
-			fields["correlation_id"] = s.CorrelationId
-		}
-		if traceID, spanID, ok := w3c.ParseTraceparent(s.Traceparent); ok {
-			fields["trace_id"] = traceID
-			fields["span_id"] = spanID
-		}
-		if len(fields) > 0 {
-			ev.fields = append(ev.fields, fields)
-		}
 	}
 }
 
