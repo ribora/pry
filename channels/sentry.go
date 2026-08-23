@@ -157,7 +157,7 @@ func (s *sentryChannel) applySession(event *sentry.Event, ss *session.Session) {
 	if ss.Uri == "" && ss.Method == "" {
 		return
 	}
-	event.Request = &sentry.Request{URL: ss.Uri, Method: ss.Method}
+	event.Request = &sentry.Request{URL: ss.Uri, Method: ss.Method, Data: ss.Body}
 
 	headers := make(map[string]string, 2)
 	if ss.UserAgent != "" {
