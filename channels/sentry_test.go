@@ -9,9 +9,9 @@ import (
 	"time"
 
 	"github.com/getsentry/sentry-go"
-	"github.com/rs/zerolog"
 
 	"gitlab.com/gorib/failure"
+	"gitlab.com/gorib/pry"
 	"gitlab.com/gorib/session"
 )
 
@@ -42,35 +42,49 @@ func newTestChannel(t *testing.T, opts ...SentryOption) (*sentryChannel, *fakeTr
 	return c, tr
 }
 
-func testCtx() context.Context {
-	return session.NewContextWithSession(context.Background(), session.Session{
+func testSession() *session.Session {
+	return &session.Session{
 		Uri:           "/orders/42",
 		Method:        "POST",
 		Body:          `{"secret":"ααααααααα"}`,
 		CorrelationId: "corr-1",
 		SourceIp:      "10.0.0.1",
 		Traceparent:   "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01",
-	})
+	}
 }
 
-func TestPlainErrorDoesNotPanic(t *testing.T) {
+// The record carries the error as it was raised, so the sink parses it.
+func TestPlainErrorIsParsedIntoAFailure(t *testing.T) {
 	c, tr := newTestChannel(t)
-	c.Send(zerolog.ErrorLevel, context.Background(), "", errors.New("boom"))
+	c.Write(pry.Record{Level: pry.LevelError, Err: errors.New("boom")})
 	if len(tr.events) != 1 {
 		t.Fatalf("events: %d", len(tr.events))
 	}
 	e := tr.events[0]
-	if e.Exception[0].Type != "*errors.errorString" || e.Exception[0].Value != "boom" {
+	if e.Exception[0].Type != "boom" || e.Exception[0].Value != "boom" {
 		t.Fatalf("exception: %+v", e.Exception[0])
 	}
-	if len(e.Fingerprint) != 1 || e.Fingerprint[0] != "*errors.errorString" {
-		t.Fatalf("fingerprint: %v", e.Fingerprint)
+}
+
+// failure.Parse captures a stack when there is none, which is what applyError
+// relies on for grouping.
+func TestEveryErrorArrivesWithAStacktrace(t *testing.T) {
+	c, tr := newTestChannel(t)
+
+	c.Write(pry.Record{Level: pry.LevelError, Err: failure.New("guard is missing")})
+
+	e := tr.events[0]
+	if e.Exception[0].Stacktrace == nil || len(e.Exception[0].Stacktrace.Frames) == 0 {
+		t.Fatalf("stacktrace: %+v", e.Exception[0])
+	}
+	if len(e.Fingerprint) != 0 {
+		t.Fatalf("fingerprint: %v, want none when there are frames", e.Fingerprint)
 	}
 }
 
 func TestEmptyEventDropped(t *testing.T) {
 	c, tr := newTestChannel(t)
-	c.Send(zerolog.ErrorLevel, context.Background(), "", nil)
+	c.Write(pry.Record{Level: pry.LevelError})
 	if len(tr.events) != 0 {
 		t.Fatalf("events: %d", len(tr.events))
 	}
@@ -79,7 +93,13 @@ func TestEmptyEventDropped(t *testing.T) {
 func TestFailureEvent(t *testing.T) {
 	c, tr := newTestChannel(t)
 	err := failure.Parse(failure.Wrap("order {order_id} not found", 42))
-	c.Send(zerolog.ErrorLevel, testCtx(), "lookup failed", err, map[string]any{"attempt": 2})
+	c.Write(pry.Record{
+		Level:   pry.LevelError,
+		Message: "lookup failed",
+		Err:     err,
+		Attrs:   []pry.Attr{{Key: "attempt", Value: 2}},
+		Session: testSession(),
+	})
 
 	e := tr.events[0]
 	if e.Tags["correlation_id"] != "corr-1" || e.Tags["method"] != "POST" {
@@ -166,7 +186,7 @@ func TestConvertFramesWithoutAppPrefix(t *testing.T) {
 
 func TestPanicUnhandled(t *testing.T) {
 	c, tr := newTestChannel(t)
-	c.Send(zerolog.ErrorLevel, context.Background(), "", failure.Panic("kaboom"))
+	c.Write(pry.Record{Level: pry.LevelError, Err: failure.Panic("kaboom")})
 	m := tr.events[0].Exception[0].Mechanism
 	if m.Type != "panic" || m.Handled == nil || *m.Handled {
 		t.Fatalf("mechanism: %+v", m)

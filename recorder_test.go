@@ -2,7 +2,6 @@ package pry
 
 import (
 	"errors"
-	"fmt"
 	"sync"
 	"testing"
 
@@ -11,8 +10,8 @@ import (
 
 var _ Logger = Recorder()
 
-// record builds an event with a nil zerolog field, which holds only while no
-// option touches it. An option that does breaks this, not a service's suite.
+// A new option that forgets to write the record would be readable nowhere, and
+// a service's suite is the wrong place to find that out.
 func TestEveryOptionSurvivesTheRecorder(t *testing.T) {
 	r := Recorder()
 
@@ -78,19 +77,20 @@ func TestErrorPassedAsTheMessageLandsUnderErrWithNoMessage(t *testing.T) {
 	}
 }
 
-// The real logger attaches a failure's payload as a field, and a scenario
-// asserting on it should read the same thing here.
-func TestPayloadIsAttachedTheWayTheLoggerAttachesIt(t *testing.T) {
+// Flattening a payload into a "payload" field is rendering, and it moved to the
+// zerolog driver with the rest of it. The recorder keeps the failure, so a
+// scenario reads the payload from there instead.
+func TestPayloadIsReachableThroughTheError(t *testing.T) {
 	r := Recorder()
 
 	r.Error("Dropping guard update", Err(failure.New("%w: {customerId}", errBroken, 42)))
 
-	payload, ok := r.Entries()[0].Field("payload")
+	fe, ok := failure.FromError(r.Entries()[0].Err)
 	if !ok {
-		t.Fatal("payload: missing")
+		t.Fatalf("err is not a failure: %v", r.Entries()[0].Err)
 	}
-	if fmt.Sprintf("%v", payload) == "" {
-		t.Fatalf("payload: %v", payload)
+	if _, ok := fe.Payload()["customerId"]; !ok {
+		t.Fatalf("payload: %v", fe.Payload())
 	}
 }
 

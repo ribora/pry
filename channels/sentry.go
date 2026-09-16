@@ -1,11 +1,9 @@
 package channels
 
 import (
-	"context"
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"maps"
 	"runtime"
 	"runtime/debug"
 	"slices"
@@ -13,21 +11,19 @@ import (
 	"time"
 
 	"github.com/getsentry/sentry-go"
-	"github.com/rs/zerolog"
 
 	"gitlab.com/gorib/failure"
+	"gitlab.com/gorib/pry"
 	"gitlab.com/gorib/pry/internal/w3c"
 	"gitlab.com/gorib/session"
 )
 
-var sentryLevels = map[zerolog.Level]sentry.Level{
-	zerolog.TraceLevel: sentry.LevelDebug,
-	zerolog.DebugLevel: sentry.LevelDebug,
-	zerolog.InfoLevel:  sentry.LevelInfo,
-	zerolog.WarnLevel:  sentry.LevelWarning,
-	zerolog.ErrorLevel: sentry.LevelError,
-	zerolog.FatalLevel: sentry.LevelFatal,
-	zerolog.PanicLevel: sentry.LevelFatal,
+var sentryLevels = map[pry.Level]sentry.Level{
+	pry.LevelTrace: sentry.LevelDebug,
+	pry.LevelDebug: sentry.LevelDebug,
+	pry.LevelInfo:  sentry.LevelInfo,
+	pry.LevelWarn:  sentry.LevelWarning,
+	pry.LevelError: sentry.LevelError,
 }
 
 type SentryOption func(l *sentryChannel) error
@@ -82,7 +78,7 @@ func WithSentryConnection(dsn, env string, opts ...sentryConnectOption) SentryOp
 }
 
 func Sentry(level string, options ...SentryOption) (*sentryChannel, error) {
-	lvl, err := zerolog.ParseLevel(level)
+	lvl, err := pry.ParseLevel(level)
 	if err != nil {
 		return nil, err
 	}
@@ -104,34 +100,40 @@ func Sentry(level string, options ...SentryOption) (*sentryChannel, error) {
 
 type sentryChannel struct {
 	hub       *sentry.Hub
-	level     zerolog.Level
+	level     pry.Level
 	appPrefix string
 }
 
-func (s *sentryChannel) Send(level zerolog.Level, ctx context.Context, message string, err error, fields ...map[string]any) {
-	if s.level > level || s.hub == nil {
+// Level keeps the queue from carrying what Write would discard on arrival — at
+// LOGLEVEL=trace that is every request the service serves.
+func (s *sentryChannel) Level() pry.Level { return s.level }
+
+// The check stays: Write is part of the Sink interface and anyone may call it,
+// including a test and a logger that does not ask about Level.
+func (s *sentryChannel) Write(r pry.Record) {
+	if s.level > r.Level || s.hub == nil {
 		return
 	}
-	if message == "" && err == nil {
+	if r.Message == "" && r.Err == nil {
 		return
 	}
 
 	event := sentry.NewEvent()
 	event.Timestamp = time.Now()
-	event.Level = sentryLevels[level]
+	event.Level = sentryLevels[r.Level]
 	event.Logger = "gorib"
-	event.Message = message
+	event.Message = r.Message
 
-	if len(fields) > 0 {
-		merged := make(sentry.Context)
-		for _, field := range fields {
-			maps.Copy(merged, field)
+	if len(r.Attrs) > 0 {
+		merged := make(sentry.Context, len(r.Attrs))
+		for _, attr := range r.Attrs {
+			merged[attr.Key] = attr.Value
 		}
 		event.Contexts["fields"] = merged
 	}
 
 	hub := s.hub
-	if ss := session.FromContext(ctx); ss != nil {
+	if ss := r.Session; ss != nil {
 		s.applySession(event, ss)
 		if traceId, spanId, ok := w3c.ParseTraceparent(ss.Traceparent); ok {
 			event.Tags["trace_id"] = traceId
@@ -143,8 +145,9 @@ func (s *sentryChannel) Send(level zerolog.Level, ctx context.Context, message s
 			}
 		}
 	}
-	if err != nil {
-		s.applyError(event, err)
+	// The record carries the error as it was raised, so the failure is built here.
+	if r.Err != nil {
+		s.applyError(event, failure.Parse(r.Err))
 	}
 
 	hub.CaptureEvent(event)
@@ -208,13 +211,11 @@ func (s *sentryChannel) applyError(event *sentry.Event, err error) {
 	}
 	event.Tags["error_type"] = errorType
 
+	// No fingerprint fallback: Write parses the error, and failure.Parse captures
+	// a stack when there is none, so grouping always has frames to work with.
 	exception := sentry.Exception{Type: errorType, Value: errorValue, Mechanism: mechanism}
 	if len(frames) > 0 {
 		exception.Stacktrace = &sentry.Stacktrace{Frames: frames}
-	} else {
-		// Without a stacktrace Sentry groups by type and value, and values carry
-		// rendered payload data, so every occurrence would open its own issue.
-		event.Fingerprint = []string{errorType}
 	}
 	event.Exception = append(event.Exception, exception)
 }
