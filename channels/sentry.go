@@ -135,14 +135,14 @@ func (s *sentryChannel) Write(r pry.Record) {
 	hub := s.hub
 	if ss := r.Session; ss != nil {
 		s.applySession(event, ss)
-		if traceId, spanId, ok := w3c.ParseTraceparent(ss.Traceparent); ok {
-			event.Tags["trace_id"] = traceId
-			// The scope owns the trace context, so linking the event to the
-			// incoming trace means cloning the hub instead of writing the context.
-			if pc, ok := propagationContext(traceId, spanId); ok {
-				hub = hub.Clone()
-				hub.Scope().SetPropagationContext(pc)
-			}
+	}
+	if traceId, spanId, ok := w3c.ParseTraceparent(session.TraceparentFromContext(r.Ctx)); ok {
+		event.Tags["trace_id"] = traceId
+		// The scope owns the trace context, so linking the event to the
+		// incoming trace means cloning the hub instead of writing the context.
+		if pc, ok := propagationContext(traceId, spanId); ok {
+			hub = hub.Clone()
+			hub.Scope().SetPropagationContext(pc)
 		}
 	}
 	// The record carries the error as it was raised, so the failure is built here.

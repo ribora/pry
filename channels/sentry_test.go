@@ -49,8 +49,14 @@ func testSession() *session.Session {
 		Body:          `{"secret":"ααααααααα"}`,
 		CorrelationId: "corr-1",
 		SourceIp:      "10.0.0.1",
-		Traceparent:   "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01",
 	}
+}
+
+func testContext() context.Context {
+	return session.WithTraceparent(
+		context.Background(),
+		"00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01",
+	)
 }
 
 // The record carries the error as it was raised, so the sink parses it.
@@ -99,6 +105,7 @@ func TestFailureEvent(t *testing.T) {
 		Err:     err,
 		Attrs:   []pry.Attr{{Key: "attempt", Value: 2}},
 		Session: testSession(),
+		Ctx:     testContext(),
 	})
 
 	e := tr.events[0]
