@@ -226,7 +226,9 @@ The following fields are forwarded to Sentry when present:
 | `UserLanguage` | `request.headers["Accept-Language"]` |
 | `SourceIp` | `request.env["REMOTE_ADDR"]` |
 
-If the context carries no session, `Ctx` is a no-op.
+If the context carries no session, none of these are set. The trace context is
+read from the context rather than the session, so `trace_id` and the Sentry
+propagation context are still attached to a session-less record.
 
 ## Closing
 
