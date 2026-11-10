@@ -22,8 +22,7 @@ type Record struct {
 
 	// Ctx is for a driver that needs it — slog.Handler.Handle takes one.
 	Ctx context.Context
-	// Session is a copy: middleware mutates the one in the context in place,
-	// and a sink reads this from another goroutine.
+	// A copy, because a sink reads it from another goroutine.
 	Session *session.Session
 }
 
