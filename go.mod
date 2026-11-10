@@ -5,8 +5,8 @@ go 1.27.0
 require (
 	github.com/getsentry/sentry-go v0.48.0
 	github.com/rs/zerolog v1.35.1
-	gitlab.com/gorib/failure v1.4.0
-	gitlab.com/gorib/session v1.2.0
+	gitlab.com/gorib/failure v1.4.1
+	gitlab.com/gorib/session v1.2.1
 )
 
 require (
