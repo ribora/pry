@@ -12,10 +12,10 @@ import (
 
 	"github.com/getsentry/sentry-go"
 
-	"gitlab.com/gorib/failure"
-	"gitlab.com/gorib/pry"
-	"gitlab.com/gorib/pry/internal/w3c"
-	"gitlab.com/gorib/session"
+	"github.com/ribora/failure"
+	"github.com/ribora/pry"
+	"github.com/ribora/pry/internal/w3c"
+	"github.com/ribora/session"
 )
 
 var sentryLevels = map[pry.Level]sentry.Level{

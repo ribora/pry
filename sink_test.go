@@ -7,8 +7,8 @@ import (
 	"sync"
 	"testing"
 
-	"gitlab.com/gorib/pry"
-	pryzerolog "gitlab.com/gorib/pry/zerolog"
+	"github.com/ribora/pry"
+	pryzerolog "github.com/ribora/pry/zerolog"
 )
 
 // A sink that will not move until it is let go.

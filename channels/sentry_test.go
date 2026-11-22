@@ -10,9 +10,9 @@ import (
 
 	"github.com/getsentry/sentry-go"
 
-	"gitlab.com/gorib/failure"
-	"gitlab.com/gorib/pry"
-	"gitlab.com/gorib/session"
+	"github.com/ribora/failure"
+	"github.com/ribora/pry"
+	"github.com/ribora/session"
 )
 
 type fakeTransport struct{ events []*sentry.Event }
@@ -152,7 +152,7 @@ func TestFailureEvent(t *testing.T) {
 func TestConvertFrames(t *testing.T) {
 	c := &sentryChannel{appPrefix: "gitlab.com/gotrg"}
 	frames := c.convertFrames([]failure.Frame{
-		{Function: "gitlab.com/gorib/pry.(*logger).log", File: "/src/pry/logger.go", Line: 10},
+		{Function: "github.com/ribora/pry.(*logger).log", File: "/src/pry/logger.go", Line: 10},
 		{Function: "gitlab.com/gotrg/orders.(*Service).Get", File: "/src/orders/service.go", Line: 20},
 		{Function: "main.main", File: "/src/main.go", Line: 5},
 	})

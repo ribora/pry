@@ -13,10 +13,10 @@ import (
 	"sync"
 	"testing"
 
-	"gitlab.com/gorib/failure"
-	"gitlab.com/gorib/pry"
-	pryzerolog "gitlab.com/gorib/pry/zerolog"
-	"gitlab.com/gorib/session"
+	"github.com/ribora/failure"
+	"github.com/ribora/pry"
+	pryzerolog "github.com/ribora/pry/zerolog"
+	"github.com/ribora/session"
 )
 
 // Pins what the logger emits.

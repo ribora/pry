@@ -8,8 +8,8 @@ import (
 
 	"github.com/rs/zerolog"
 
-	"gitlab.com/gorib/failure"
-	"gitlab.com/gorib/pry"
+	"github.com/ribora/failure"
+	"github.com/ribora/pry"
 )
 
 var levels = map[pry.Level]zerolog.Level{

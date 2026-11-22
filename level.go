@@ -1,6 +1,6 @@
 package pry
 
-import "gitlab.com/gorib/failure"
+import "github.com/ribora/failure"
 
 // Ordered so a sink can filter with a comparison. The zero value is LevelDebug.
 type Level int8

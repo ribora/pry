@@ -11,7 +11,7 @@ imports zerolog, so a binary that takes the slog driver never links it.
 ## Installation
 
 ```
-go get gitlab.com/gorib/pry
+go get github.com/ribora/pry
 ```
 
 ## Usage
@@ -20,8 +20,8 @@ go get gitlab.com/gorib/pry
 
 ```go
 import (
-    "gitlab.com/gorib/pry"
-    pryzerolog "gitlab.com/gorib/pry/zerolog"
+    "github.com/ribora/pry"
+    pryzerolog "github.com/ribora/pry/zerolog"
 )
 
 level, err := pry.ParseLevel("info")
@@ -199,7 +199,7 @@ and the only limit was memory.
 ### Sentry / Glitchtip
 
 ```go
-import "gitlab.com/gorib/pry/channels"
+import "github.com/ribora/pry/channels"
 
 sentry, err := channels.Sentry("error",
     channels.WithSentryConnection(dsn, "production",

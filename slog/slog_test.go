@@ -7,9 +7,9 @@ import (
 	"strings"
 	"testing"
 
-	"gitlab.com/gorib/failure"
-	"gitlab.com/gorib/pry"
-	pryslog "gitlab.com/gorib/pry/slog"
+	"github.com/ribora/failure"
+	"github.com/ribora/pry"
+	pryslog "github.com/ribora/pry/slog"
 )
 
 func capture(t *testing.T, level pry.Level) (*bytes.Buffer, pry.Logger) {

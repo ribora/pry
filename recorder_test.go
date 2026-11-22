@@ -5,7 +5,7 @@ import (
 	"sync"
 	"testing"
 
-	"gitlab.com/gorib/failure"
+	"github.com/ribora/failure"
 )
 
 var _ Logger = Recorder()

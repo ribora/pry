@@ -3,7 +3,7 @@ package pry
 import (
 	"context"
 
-	"gitlab.com/gorib/session"
+	"github.com/ribora/session"
 )
 
 // Named Attr because Field is the option that appends one.

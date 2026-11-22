@@ -2,9 +2,6 @@ package pry
 
 import "sync"
 
-// Deprecated: Entry is Record. Kept so a suite that named the type still builds.
-type Entry = Record
-
 // Recorder is a Logger that keeps what it was told, for a test that asserts on
 // logging. It is a Driver under the real logger, so options are applied by the
 // code production runs.

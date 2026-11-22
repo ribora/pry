@@ -5,10 +5,10 @@ import (
 	"log/slog"
 	"testing"
 
-	"gitlab.com/gorib/failure"
-	"gitlab.com/gorib/pry"
-	pryslog "gitlab.com/gorib/pry/slog"
-	pryzerolog "gitlab.com/gorib/pry/zerolog"
+	"github.com/ribora/failure"
+	"github.com/ribora/pry"
+	pryslog "github.com/ribora/pry/slog"
+	pryzerolog "github.com/ribora/pry/zerolog"
 )
 
 func drivers() map[string]pry.Driver {

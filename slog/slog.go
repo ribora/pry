@@ -10,8 +10,8 @@ import (
 	"log/slog"
 	"time"
 
-	"gitlab.com/gorib/failure"
-	"gitlab.com/gorib/pry"
+	"github.com/ribora/failure"
+	"github.com/ribora/pry"
 )
 
 // slog's scale starts at Debug, so trace is an ordinary int below it.
