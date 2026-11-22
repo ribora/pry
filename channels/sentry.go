@@ -121,7 +121,7 @@ func (s *sentryChannel) Write(r pry.Record) {
 	event := sentry.NewEvent()
 	event.Timestamp = time.Now()
 	event.Level = sentryLevels[r.Level]
-	event.Logger = "gorib"
+	event.Logger = "ribora"
 	event.Message = r.Message
 
 	if len(r.Attrs) > 0 {
